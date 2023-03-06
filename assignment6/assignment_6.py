@@ -1,6 +1,7 @@
 import numpy as np
 from pathlib import Path
 from typing import Tuple
+import random
 
 
 
@@ -31,6 +32,11 @@ def plurality_value(examples: np.ndarray) -> int:
 
     return value
 
+def entropy(q):
+    # book p.680 define boolean entropy for probability q
+    # B(q)=−(qlog2q + (1−q)log2(1−q)).
+    return -(q * np.log2(q) + (1 - q) * np.log2(1 - q))
+
 
 def importance(attributes: np.ndarray, examples: np.ndarray, measure: str) -> int:
     """
@@ -47,8 +53,30 @@ def importance(attributes: np.ndarray, examples: np.ndarray, measure: str) -> in
         (int): The index of the attribute chosen as the test
 
     """
-    # TODO implement the importance function for both measure = "random" and measure = "information_gain"
-    return 1
+    # if measure is random, return attribute from a random index
+    if measure == "random":
+        return attributes[random.randrange(0, len(attributes))]
+    else:
+        p, n = np.count_nonzero(examples[:, -1] == 1), np.count_nonzero(examples[:, -1] == 2)
+        # B(q) = B(pk / (pk + nk))
+        boolean_entropy = entropy(p / (p + n))
+        importance = []
+        for a in attributes:
+            # defining the arrays of the two classifications.
+            # note that this method does not work out the box if scaled up with more possible classes
+            e_1 = np.array([e for e in examples if e[a] == 1])
+            e_2 = np.array([e for e in examples if e[a] == 2])
+            # count the occurences of 1
+            p_1 = np.count_nonzero(e_1[:, -1] == 1)
+            p_2 = np.count_nonzero(e_2[:, -1] == 1)
+
+            # The information gain from the attribute test on A is the expected reduction in entropy: p.680
+            gain = boolean_entropy - p_1 / (p + n) * entropy(p_1 / len(e_1)) - p_2 / (
+                        p + n) * entropy(p_2 / len(e_2))
+            importance.append(gain)
+
+        # the resulting attribute is the one with index equal to that of greatest importance
+        return attributes[np.argmax(importance)]
 
 
 def learn_decision_tree(examples: np.ndarray, attributes: np.ndarray, parent_examples: np.ndarray,
@@ -77,40 +105,32 @@ def learn_decision_tree(examples: np.ndarray, attributes: np.ndarray, parent_exa
         parent.children[branch_value] = node
         node.parent = parent
 
-    print(node)
-
-    # TODO implement the steps of the pseudocode in Figure 19.5 on page 678
-    print("-------LEARN_DECISION_TREE:------\n\n")
-    #print("examples\n", examples)
-    print("attributes\n", attributes)
-    print("parent_examples\n", parent_examples)
-    print("\n\n-----------------------\n\n")
-
     # Empty check then return plurality value of parents
-    if examples.size == 0:
+
+    if not examples.any():
         return plurality_value(parent_examples)
 
     # Check if all classifications are equal to that of the first element in classifications.
-    # If true return that classification
+    # If true return node with value of given classification
     classifications = examples[:, -1]
-    print(classifications)
     if np.all(classifications == classifications[0]):
-        return classifications[0]
+        node.value = classifications[0]
+        return node
 
     elif attributes.size == 0:
         return plurality_value(examples)
 
     else:
         A = importance(attributes, examples, measure)
-        node.value = attributes[A]
-        print("Att", attributes)
-        new_attributes = np.delete(attributes, A)
-        print("Att", new_attributes)
-
-        for v in A:
-            exs = [e for e in examples if e == v]
-
-    print("node\n", node)
+        node.attribute = A
+        for v in range(1, 3):
+            exs = np.array([e for e in examples if e[A] == v])
+            learn_decision_tree(examples=exs,
+                                attributes=np.array([attr for attr in attributes if attr != A]),
+                                parent_examples=examples,
+                                parent=node,
+                                branch_value=v,
+                                measure=measure)
     return node
 
 
@@ -119,6 +139,7 @@ def accuracy(tree: Node, examples: np.ndarray) -> float:
     """ Calculates accuracy of tree on examples """
     correct = 0
     for example in examples:
+        print(example[:-1])
         pred = tree.classify(example[:-1])
         correct += pred == example[-1]
     return correct / examples.shape[0]
@@ -139,16 +160,35 @@ def load_data() -> Tuple[np.ndarray, np.ndarray]:
 if __name__ == '__main__':
 
     train, test = load_data()
+    epochs = 50
 
     # information_gain or random
-    measure = "information_gain"
+    measures = ["random", "information_gain"]
 
-    tree = learn_decision_tree(examples=train,
-                    attributes=np.arange(0, train.shape[1] - 1, 1, dtype=int),
-                    parent_examples=None,
-                    parent=None,
-                    branch_value=None,
-                    measure=measure)
 
-    print(f"Training Accuracy {accuracy(tree, train)}")
-    print(f"Test Accuracy {accuracy(tree, test)}")
+    random_train_acc = []
+    random_test_acc = []
+    gain_train_acc = []
+    gain_test_acc = []
+
+    for e in range(epochs):
+        for m in measures:
+            tree = learn_decision_tree(examples=train,
+                            attributes=np.arange(0, train.shape[1] - 1, 1, dtype=int),
+                            parent_examples=None,
+                            parent=None,
+                            branch_value=None,
+                            measure=m)
+            if m == measures[0]:
+                random_train_acc.append(accuracy(tree, train))
+                random_test_acc.append(accuracy(tree, test))
+            else:
+                gain_train_acc.append(accuracy(tree, train))
+                gain_test_acc.append(accuracy(tree, test))
+
+    print("Running training for: ", epochs, " epochs:\n-------------------------")
+    #print(f"Random Training Accuracy {accuracy(tree, train)}")
+    #print(f"Random Test Accuracy {accuracy(tree, test)}")
+    print("\n-------------------------")
+    #print(f"Gain Training Accuracy {accuracy(tree, train)}")
+    #print(f"Gain Test Accuracy {accuracy(tree, test)}")
