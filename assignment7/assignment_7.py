@@ -1,5 +1,5 @@
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def func(X: np.ndarray) -> np.ndarray:
     """
@@ -43,20 +43,43 @@ def loss(y_true, y_pred):
     # Mean squared error loss function
     return np.mean((y_true - y_pred)**2)
 
+
 def forward_pass(x, iw, ow, bias):
+    """
+
+    :param x: input values going through the forward pass
+    :param iw: input weight for used for hidden layer
+    :param ow: output weight, for the output layer
+    :param bias:
+    :return: returns the hidden layer, and output layer
+    """
     hidden_layer = sigmoid(perceptron(x, iw, bias))
     output_layer = np.dot(hidden_layer, ow)
     return hidden_layer, output_layer
 
-def train(x_train, y_train, lr, epochs):
-    input_weight = np.random.rand(2, 2)
-    output_weight = np.random.rand(2)
-    input_bias = np.random.rand(2)
-    output_bias = np.random.rand(1)
+
+def train(x_train, y_train, lr, epochs, x_test=None):
+    # input data has two dimensions, we have two hidden components
+    input_dim = 2
+    hidden_dim = 2
+    # we will get one value as output
+    output_dim = 1
+
+    # weights and biases are defined by their corresponding dimensions
+    # will need to be of compatible dimensions for further calculation with input/output
+    input_weight = np.random.normal(size=(input_dim, hidden_dim))
+    output_weight = np.random.normal(size=(input_dim, output_dim))
+    # biases are a simple random variable
+    input_bias = np.random.normal(size=(1, hidden_dim))
+    output_bias = np.random.normal(size=(1, output_dim))
     for i in range(epochs):
+        # running forward pass for the training data with corresponding weigts and biases
         hidden_layer, output_layer = forward_pass(x_train, input_weight, output_weight, input_bias)
 
-        # chat
+        # some issues with shapes when taking the dot product,
+        # therefore reshaping one dimensional array to (280, 1)
+        y_train = y_train.reshape((280, 1))
+
         d_output = 2 * (output_layer - y_train)
         d_weights_output = np.dot(hidden_layer.T, d_output)
         d_bias_output = np.sum(d_output)
@@ -65,16 +88,34 @@ def train(x_train, y_train, lr, epochs):
         d_weights_hidden = np.dot(x_train.T, d_hidden)
         d_bias_hidden = np.sum(d_hidden, axis=0)
 
+        # adjust the weights, decrease corresponding to learning rate
         input_weight -= lr * d_weights_hidden
         input_bias -= lr * d_bias_hidden
         output_weight -= lr * d_weights_output
         output_bias -= lr * d_bias_output
 
-        _, y_pred = forward_pass(x_train)
-        print("Epoch:", i, "Loss:", loss(y_train, y_pred))
+        _, y_pred = forward_pass(x_train, input_weight, output_weight, input_bias)
+        if (i+1) % 10000 == 0:
+            print("Epoch:", i+1, "Loss:", loss(y_train, y_pred))
+
+    if x_test is not None:
+        # if we send in test data, we will return the corresponding predictions
+        print("PREDICTING TEST DATA")
+        _, y_pred = forward_pass(x_test, input_weight, output_weight, input_bias)
+
+    return y_pred
 
 if __name__ == "__main__":
     np.random.seed(0)
     X_train, y_train, X_test, y_test = get_data(n_train=280, n_test=120)
-    train(X_train, y_train, 0.01, 1)
-    # TODO: Your code goes here.
+    y_pred = train(X_train, y_train, 0.0001, 100000, x_test=X_test)
+
+    plt.scatter(y_test, y_pred)
+    plt.xlabel('Actual values')
+    plt.ylabel('Predicted values')
+    plt.show()
+    plt.scatter(range(len(y_test)), y_test)
+    plt.scatter(range(len(y_pred)), y_pred, color='red')
+    plt.xlabel('Index')
+    plt.ylabel('Predictions')
+    plt.show()
