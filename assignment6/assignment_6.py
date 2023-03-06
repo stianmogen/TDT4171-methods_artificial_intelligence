@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 from typing import Tuple
 import random
-
+from functools import reduce
 
 
 class Node:
@@ -108,7 +108,8 @@ def learn_decision_tree(examples: np.ndarray, attributes: np.ndarray, parent_exa
     # Empty check then return plurality value of parents
 
     if not examples.any():
-        return plurality_value(parent_examples)
+        node.value = plurality_value(parent_examples)
+        return node
 
     # Check if all classifications are equal to that of the first element in classifications.
     # If true return node with value of given classification
@@ -117,8 +118,9 @@ def learn_decision_tree(examples: np.ndarray, attributes: np.ndarray, parent_exa
         node.value = classifications[0]
         return node
 
-    elif attributes.size == 0:
-        return plurality_value(examples)
+    elif not attributes.any():
+        node.value = plurality_value(examples)
+        return node
 
     else:
         A = importance(attributes, examples, measure)
@@ -139,11 +141,14 @@ def accuracy(tree: Node, examples: np.ndarray) -> float:
     """ Calculates accuracy of tree on examples """
     correct = 0
     for example in examples:
-        print(example[:-1])
         pred = tree.classify(example[:-1])
         correct += pred == example[-1]
     return correct / examples.shape[0]
 
+
+def average(results):
+    """ Average value from list elements """
+    return reduce(lambda a, b: a + b, results) / len(results)
 
 def load_data() -> Tuple[np.ndarray, np.ndarray]:
     """ Load the data for the assignment,
@@ -160,7 +165,7 @@ def load_data() -> Tuple[np.ndarray, np.ndarray]:
 if __name__ == '__main__':
 
     train, test = load_data()
-    epochs = 50
+    epochs = 100
 
     # information_gain or random
     measures = ["random", "information_gain"]
@@ -168,27 +173,31 @@ if __name__ == '__main__':
 
     random_train_acc = []
     random_test_acc = []
-    gain_train_acc = []
-    gain_test_acc = []
+    for m in measures:
+        if m == measures[0]:
+            for e in range(epochs):
+                tree_random = learn_decision_tree(examples=train,
+                                attributes=np.arange(0, train.shape[1] - 1, 1, dtype=int),
+                                parent_examples=None,
+                                parent=None,
+                                branch_value=None,
+                                measure=m)
 
-    for e in range(epochs):
-        for m in measures:
-            tree = learn_decision_tree(examples=train,
-                            attributes=np.arange(0, train.shape[1] - 1, 1, dtype=int),
-                            parent_examples=None,
-                            parent=None,
-                            branch_value=None,
-                            measure=m)
-            if m == measures[0]:
-                random_train_acc.append(accuracy(tree, train))
-                random_test_acc.append(accuracy(tree, test))
-            else:
-                gain_train_acc.append(accuracy(tree, train))
-                gain_test_acc.append(accuracy(tree, test))
+                random_train_acc.append(accuracy(tree_random, train))
+                random_test_acc.append(accuracy(tree_random, test))
+        else:
+            tree_gain = learn_decision_tree(examples=train,
+                                       attributes=np.arange(0, train.shape[1] - 1, 1, dtype=int),
+                                       parent_examples=None,
+                                       parent=None,
+                                       branch_value=None,
+                                       measure=m)
+            gain_train_acc = accuracy(tree_gain, train)
+            gain_test_acc = accuracy(tree_gain, test)
 
     print("Running training for: ", epochs, " epochs:\n-------------------------")
-    #print(f"Random Training Accuracy {accuracy(tree, train)}")
-    #print(f"Random Test Accuracy {accuracy(tree, test)}")
-    print("\n-------------------------")
-    #print(f"Gain Training Accuracy {accuracy(tree, train)}")
-    #print(f"Gain Test Accuracy {accuracy(tree, test)}")
+    print(f"Random Training Accuracy {average(random_train_acc)}")
+    print(f"Random Test Accuracy {average(random_test_acc)}")
+    print("-------------------------")
+    print(f"Gain Training Accuracy {gain_train_acc}")
+    print(f"Gain Test Accuracy {gain_test_acc}")
