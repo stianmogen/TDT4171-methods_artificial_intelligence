@@ -80,10 +80,15 @@ def train(x_train, y_train, lr, epochs, x_test=None):
         # therefore reshaping one dimensional array to (280, 1)
         y_train = y_train.reshape((280, 1))
 
+        # gradient calculatation where derivative output is 2 * (output layer - training output)
         d_output = 2 * (output_layer - y_train)
+        # weights are calculated using dot pruduct of hidden layer and derived output
         d_weights_output = np.dot(hidden_layer.T, d_output)
         d_bias_output = np.sum(d_output)
 
+        # calculate new hidden component with weights and biases using dotproduct and factoring the hidden layer
+        # derivative of the loss function with inputs of a hidden layer previously calculated using the sigmoid function
+        # this is the backpropagation component of the algorithm
         d_hidden = np.dot(d_output, output_weight.T) * hidden_layer * (1 - hidden_layer)
         d_weights_hidden = np.dot(x_train.T, d_hidden)
         d_bias_hidden = np.sum(d_hidden, axis=0)
