@@ -2,10 +2,10 @@ import pickle
 from typing import Dict, List, Any, Union
 import numpy as np
 import pandas as pd
-from keras import Input
+from keras import Input, Sequential
 from keras.layers import Bidirectional, LSTM, Embedding, Dense, Flatten
-from keras.utils import pad_sequences
-# from keras_preprocessing.sequence import pad_sequences
+# from keras.utils import pad_sequences
+from keras_preprocessing.sequence import pad_sequences
 from keras.models import Model
 import tensorflow as tf
 import os
@@ -32,16 +32,14 @@ def preprocess_data(data: Dict[str, Union[List[Any], int]]) -> Dict[str, Union[L
     return data
 
 def ff_model(vocab_size=1000, num_features=66):
-    input_tensor = Input(shape=(num_features, ))
-    x = Embedding(input_dim=vocab_size, output_dim=64)(input_tensor)
-    x = Dense(256, activation='relu')(x)
-    # without the flatten layer the model will only produce 0.7 accuracy
-    x = Flatten()(x)
-    x = Dense(128, activation='sigmoid')(x)
-    y = Dense(1, activation='sigmoid')(x)
-
-    model = Model(input_tensor, y)
-
+    model = Sequential([
+        Embedding(input_dim=vocab_size, output_dim=128, input_shape=(num_features,)),
+        Dense(512, activation='relu'),
+        Dense(256, activation='relu'),
+        Flatten(),
+        Dense(128, activation='sigmoid'),
+        Dense(1, activation='sigmoid')
+    ])
     return model
 
 
@@ -58,7 +56,7 @@ def lstm_model(vocab_size=1000, num_features=66):
 
 
 
-def train_model(data: Dict[str, Union[List[Any], np.ndarray, int]], model_type="feedforward", batch_size=1024, epochs=10) -> pd:
+def train_model(data: Dict[str, Union[List[Any], np.ndarray, int]], model_type="feedforward", batch_size=1024, epochs=20) -> pd:
     """
     Build a neural network of type model_type and train the model on the data.
     Evaluate the accuracy of the model on test data.
@@ -70,6 +68,8 @@ def train_model(data: Dict[str, Union[List[Any], np.ndarray, int]], model_type="
     """
     x_train = data["x_train"]
     y_train = data["y_train"]
+    x_test = data["x_test"]
+    y_test = data["y_test"]
     vocab_size = data["vocab_size"]
     seq_length, num_features = x_train.shape[0], x_train.shape[1]
 
@@ -90,7 +90,9 @@ def train_model(data: Dict[str, Union[List[Any], np.ndarray, int]], model_type="
     #model.save()
     model_history = pd.DataFrame(history.history)
     model_history['epoch'] = history.epoch
-    return model_history, model_history['accuracy'].iloc[-1]
+    eval = model.evaluate(x_test, y_test)
+    print(eval)
+    return model_history, eval[1]
 
 def main() -> None:
     print("1. Loading data...")
@@ -98,13 +100,13 @@ def main() -> None:
     print("2. Preprocessing data...")
     keras_data = preprocess_data(keras_data)
     print("3. Training feedforward neural network...")
-    fnn_model_history, fnn_test_accuracy = train_model(keras_data, model_type="feedforward")
+    fnn_model_history, fnn_test_accuracy = train_model(keras_data, model_type="feedforward", epochs=10)
     print('Model: Feedforward NN.\n'
           f'Test accuracy: {fnn_test_accuracy:.3f}')
-    print("4. Training recurrent neural network...")
-    rnn_model_history, rnn_test_accuracy = train_model(keras_data, model_type="recurrent")
-    print('Model: Recurrent NN.\n'
-          f'Test accuracy: {rnn_test_accuracy:.3f}')
+    #print("4. Training recurrent neural network...")
+    #rnn_model_history, rnn_test_accuracy = train_model(keras_data, model_type="recurrent")
+    #print('Model: Recurrent NN.\n'
+    #      f'Test accuracy: {rnn_test_accuracy:.3f}')
 
 
 
