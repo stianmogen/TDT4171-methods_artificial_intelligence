@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 # Keras
 from keras import Input
-from keras.layers import Bidirectional, LSTM, Embedding, Dense, Activation, Lambda, RepeatVector, Permute, Concatenate
+from keras.layers import Bidirectional, LSTM, Embedding, Dense, Activation, Lambda, RepeatVector, Permute, Concatenate, \
+    Flatten
 from tensorflow import keras
 import tensorflow as tf
 from keras.utils import pad_sequences
@@ -34,10 +35,12 @@ def preprocess_data(data: Dict[str, Union[List[Any], int]]) -> Dict[str, Union[L
     return data
 
 def ff_model(vocab_size=1000):
-    input_tensor = Input(shape=(None,))
+    input_tensor = Input(shape=(None, 66))
     x = Embedding(input_dim=vocab_size, output_dim=128)(input_tensor)
     y = Dense(1, activation='sigmoid')(x)
+
     model = Model(input_tensor, y)
+
     return model
 
 
@@ -67,14 +70,18 @@ def train_model(data: Dict[str, Union[List[Any], np.ndarray, int]], model_type="
     x_train = data["x_train"]
     y_train = data["y_train"]
     vocab_size = data["vocab_size"]
-    model = lstm_model(vocab_size)
+
     if (model_type=="reccurent"):
-        pass
+        print("Creating LSTM model:")
+        model = lstm_model(vocab_size)
+        model.compile(optimizer="rmsprop", loss="binary_crossentropy", metrics=['accuracy'])
     else:
-        pass
+        print("Creating FF model")
+        model = ff_model(vocab_size)
+        model.compile(optimizer="rmsprop", loss="binary_crossentropy", metrics=['accuracy'])
     print("Training..")
 
-    model.compile(optimizer="rmsprop", loss="binary_crossentropy", metrics=['accuracy'])
+
     model_checkpoints = keras.callbacks.ModelCheckpoint(f"model.h5", save_best_only=True)
     print("x_train", x_train.shape)
     print("y_train", y_train.shape)
