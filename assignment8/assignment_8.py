@@ -3,7 +3,7 @@ from typing import Dict, List, Any, Union
 import numpy as np
 import pandas as pd
 from keras import Input, Sequential
-from keras.layers import Bidirectional, LSTM, Embedding, Dense, Flatten
+from keras.layers import Bidirectional, LSTM, Embedding, Dense, Flatten, Dropout
 # from keras.utils import pad_sequences
 from keras_preprocessing.sequence import pad_sequences
 from keras.models import Model
@@ -34,9 +34,9 @@ def preprocess_data(data: Dict[str, Union[List[Any], int]]) -> Dict[str, Union[L
 def ff_model(vocab_size=1000, num_features=66):
     model = Sequential([
         Embedding(input_dim=vocab_size, output_dim=128, input_shape=(num_features,)),
-        Dense(512, activation='relu'),
         Dense(256, activation='relu'),
         Flatten(),
+        Dropout(0.5),
         Dense(128, activation='sigmoid'),
         Dense(1, activation='sigmoid')
     ])
@@ -100,7 +100,7 @@ def main() -> None:
     print("2. Preprocessing data...")
     keras_data = preprocess_data(keras_data)
     print("3. Training feedforward neural network...")
-    fnn_model_history, fnn_test_accuracy = train_model(keras_data, model_type="feedforward", epochs=10)
+    fnn_model_history, fnn_test_accuracy = train_model(keras_data, model_type="feedforward", epochs=20)
     print('Model: Feedforward NN.\n'
           f'Test accuracy: {fnn_test_accuracy:.3f}')
     #print("4. Training recurrent neural network...")
